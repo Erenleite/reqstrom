@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReqStrom - Performance Testing Platform</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ade80' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/></svg>">
+  <meta name="description" content="Professional k6 load testing dashboard — configure, run and analyze performance tests with real-time threshold comparison." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg-base:        #0b0e17;
+      --bg-panel:       #111827;
+      --bg-card:        #1a2235;
+      --bg-input:       #0f1623;
+      --bg-terminal:    #060a10;
+
+      --accent-primary: #4ade80;   /* green */
+      --accent-blue:    #60a5fa;
+      --accent-purple:  #a78bfa;
+      --accent-orange:  #fb923c;
+      --accent-red:     #f87171;
+      --accent-cyan:    #22d3ee;
+
+      --text-primary:   #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted:     #475569;
+
+      --border:         rgba(255,255,255,0.07);
+      --border-focus:   rgba(96,165,250,0.5);
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  18px;
+      --radius-xl:  24px;
+
+      --shadow-glow-green:  0 0 20px rgba(74,222,128,0.2);
+      --shadow-glow-red:    0 0 20px rgba(248,113,113,0.2);
+      --shadow-glow-blue:   0 0 20px rgba(96,165,250,0.15);
+
+      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(74,222,128,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(96,165,250,0.04) 0%, transparent 50%);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLLBAR
+    ═══════════════════════════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════════════════════ */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 28px;
+      background: rgba(17,24,39,0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px; /* İkon rahat sığsın diye 2px büyüttük */
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, #16a34a 100%);
+    border-radius: var(--radius-sm);
+    color: #0b0e17; /* İkonun rengini koyu arka plana zıt, siyah/lacivert yaptık */
+    box-shadow: var(--shadow-glow-green); /* Neon parlama efekti ekledik */
+    flex-shrink: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .header-logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px rgba(74, 222, 128, 0.4);
+  }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════════════════════ */
+    .main {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 0;
+      height: calc(100vh - 65px);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LEFT PANEL — CONFIG
+    ═══════════════════════════════════════════════════════════════ */
+    .panel-left {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .section-title .icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    /* Form group */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-row   { display: grid; gap: 12px; align-items: flex-end; }
+    .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    select { cursor: pointer; }
+    select option { background: var(--bg-panel); }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+    }
+
+    .toggle-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .toggle-sublabel { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--text-muted);
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: var(--accent-primary); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* CSV upload area */
+    .upload-area {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-area:hover {
+      border-color: var(--accent-blue);
+      background: rgba(96,165,250,0.03);
+    }
+
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-text { font-size: 12px; color: var(--text-muted); }
+    .upload-icon { font-size: 20px; margin-bottom: 4px; }
+
+    /* Headers list */
+    .headers-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .header-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-icon:hover { border-color: var(--accent-red); color: var(--accent-red); }
+    .btn-icon.add:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+    /* Start button */
+    .btn-start {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent-primary) 0%, #16a34a 100%);
+      color: #000;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+      display: flex;              
+      align-items: center;       
+      justify-content: center;    
+      text-align: center;          
+      gap: 8px;                    
+    }
+
+    .btn-start::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -60%;
+      width: 60%;
+      height: 200%;
+      background: rgba(255,255,255,0.15);
+      transform: skewX(-20deg);
+      transition: left 0.5s;
+    }
+
+    .btn-start:hover::before { left: 110%; }
+
+    .btn-start:hover { box-shadow: var(--shadow-glow-green); }
+    .btn-start:active { transform: scale(0.98); }
+    .btn-start:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-start .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RIGHT PANEL — RESULTS
+    ═══════════════════════════════════════════════════════════════ */
+    .panel-right {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: var(--bg-base);
+    }
+
+    .results-header {
+      padding: 20px 28px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .results-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .status-idle    { background: rgba(71,85,105,0.3); color: var(--text-muted); border: 1px solid var(--border); }
+    .status-running { background: rgba(251,146,60,0.15); color: var(--accent-orange); border: 1px solid rgba(251,146,60,0.3); }
+    .status-done    { background: rgba(74,222,128,0.1); color: var(--accent-primary); border: 1px solid rgba(74,222,128,0.3); }
+    .status-error   { background: rgba(248,113,113,0.1); color: var(--accent-red); border: 1px solid rgba(248,113,113,0.3); }
+
+    .pulse { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .results-body {
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+    }
+
+    /* ── Threshold cards ─────────────────────────────────────────── */
+    .threshold-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .threshold-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+
+    .threshold-card.pass {
+      border-color: rgba(74,222,128,0.25);
+      box-shadow: var(--shadow-glow-green);
+    }
+
+    .threshold-card.fail {
+      border-color: rgba(248,113,113,0.25);
+      box-shadow: var(--shadow-glow-red);
+    }
+
+    .threshold-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .threshold-icon.pass { background: rgba(74,222,128,0.12); }
+    .threshold-icon.fail { background: rgba(248,113,113,0.12); }
+
+    .threshold-info { flex: 1; min-width: 0; }
+
+    .threshold-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .threshold-values {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .threshold-actual {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .threshold-actual.pass { color: var(--accent-primary); }
+    .threshold-actual.fail { color: var(--accent-red); }
+
+    .badge-pass, .badge-fail {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .badge-pass { background: rgba(74,222,128,0.15); color: var(--accent-primary); }
+    .badge-fail { background: rgba(248,113,113,0.15); color: var(--accent-red); }
+
+    /* ── Stats row ───────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent-blue);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* ── Chart area ──────────────────────────────────────────────── */
+    .chart-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    canvas#chart {
+      width: 100% !important;
+      height: 200px;
+      display: block;
+    }
+
+    .chart-placeholder {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chart-placeholder .icon { font-size: 32px; opacity: 0.4; }
+
+    /* ── Terminal ─────────────────────────────────────────────────── */
+    .terminal-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .terminal-dots { display: flex; gap: 6px; }
+    .terminal-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-red    { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green  { background: #27c93f; }
+
+    .terminal-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .terminal-body {
+      background: var(--bg-terminal);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 16px;
+      min-height: 200px;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .terminal-placeholder {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* Terminal coloring */
+    .log-info   { color: #60a5fa; }
+    .log-warn   { color: #fbbf24; }
+    .log-error  { color: #f87171; }
+    .log-pass   { color: #4ade80; }
+    .log-engine { color: #a78bfa; }
+    .log-normal { color: #cbd5e1; }
+
+    /* ── Error box ────────────────────────────────────────────────── */
+    .error-box {
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--accent-red);
+      display: none;
+    }
+
+    .error-box.visible { display: block; }
+
+    /* ── Empty state ──────────────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      opacity: 0.3;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+    .empty-sub   { font-size: 13px; max-width: 280px; }
+
+    /* ── Fade-in animation ────────────────────────────────────────── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in { animation: fadeInUp 0.4s ease both; }
+
+    /* ── Running animation overlay ─────────────────────────────────── */
+    .running-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 40px;
+    }
+
+    .running-overlay.visible { display: flex; }
+
+    .loader-ring {
+      width: 60px;
+      height: 60px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-primary);
+      border-right-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .running-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    .running-text strong { color: var(--accent-primary); font-family: var(--font-mono); }
+
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .main {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .panel-left { height: auto; }
+    }
+
+    /* ── cURL Import ─────────────────────────────────────────────── */
+    .curl-import-box {
+      background: linear-gradient(135deg, rgba(96,165,250,0.06), rgba(167,139,250,0.06));
+      border: 1px solid rgba(96,165,250,0.2);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .curl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .curl-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .curl-toggle-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+    .curl-toggle-btn:hover { color: var(--text-secondary); }
+
+    .curl-body { display: flex; flex-direction: column; gap: 8px; }
+
+    .curl-textarea {
+      background: var(--bg-terminal);
+      border: 1px solid rgba(96,165,250,0.15);
+      border-radius: var(--radius-sm);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.6;
+      padding: 10px 12px;
+      resize: vertical;
+      min-height: 80px;
+      max-height: 180px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .curl-textarea:focus { border-color: rgba(96,165,250,0.4); }
+    .curl-textarea::placeholder { color: rgba(148,163,184,0.35); }
+
+    .curl-actions { display: flex; gap: 8px; }
+
+    .btn-parse {
+      flex: 1;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(96,165,250,0.15), rgba(167,139,250,0.15));
+      border: 1px solid rgba(96,165,250,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--accent-blue);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn-parse:hover {
+      background: linear-gradient(135deg, rgba(96,165,250,0.25), rgba(167,139,250,0.25));
+      border-color: rgba(96,165,250,0.5);
+      color: #fff;
+    }
+
+    .btn-clear-curl {
+      padding: 8px 12px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-clear-curl:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+    .curl-feedback {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    .curl-feedback.ok   { display:block; background: rgba(74,222,128,0.1);  color: var(--accent-primary); border: 1px solid rgba(74,222,128,0.2); }
+    .curl-feedback.err  { display:block; background: rgba(248,113,113,0.1); color: var(--accent-red);     border: 1px solid rgba(248,113,113,0.2); }
+
+    /* ── Executor mode badge ───────────────────────────────────────────── */
+    .executor-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      margin-top: 10px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .executor-bar.arrival {
+      background: rgba(74,222,128,0.06);
+      border: 1px solid rgba(74,222,128,0.2);
+      color: var(--accent-primary);
+    }
+    .executor-bar.vubased {
+      background: rgba(96,165,250,0.06);
+      border: 1px solid rgba(96,165,250,0.15);
+      color: var(--accent-blue);
+    }
+    .executor-pill {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    /* ── Endpoint list ───────────────────────────────────────────────── */
+    .endpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .endpoint-row {
+      display: grid;
+      grid-template-columns: 1fr 88px 70px 28px;
+      gap: 6px;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      transition: border-color 0.2s;
+    }
+
+    .endpoint-row:hover { border-color: rgba(96,165,250,0.25); }
+
+    .endpoint-row input[type="text"],
+    .endpoint-row select,
+    .endpoint-row input[type="number"] {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .endpoint-row input[type="text"]:focus,
+    .endpoint-row select:focus,
+    .endpoint-row input[type="number"]:focus {
+      border-color: var(--border-focus);
+    }
+
+    .weight-input-wrap {
+      position: relative;
+    }
+
+    .weight-input-wrap input {
+      padding-right: 22px !important;
+    }
+
+    .weight-pct-sign {
+      position: absolute;
+      right: 7px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .weight-total-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      transition: background 0.3s, border-color 0.3s;
+      border: 1px solid transparent;
+    }
+
+    .weight-total-bar.ok {
+      background: rgba(74,222,128,0.07);
+      border-color: rgba(74,222,128,0.2);
+      color: var(--accent-primary);
+    }
+
+    .weight-total-bar.warn {
+      background: rgba(251,191,36,0.07);
+      border-color: rgba(251,191,36,0.2);
+      color: #fbbf24;
+    }
+
+    .weight-bar-track {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .weight-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+    }
+
+    .btn-add-endpoint {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(96,165,250,0.06);
+      border: 1px dashed rgba(96,165,250,0.25);
+      border-radius: var(--radius-sm);
+      color: var(--accent-blue);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-add-endpoint:hover {
+      background: rgba(96,165,250,0.12);
+      border-color: rgba(96,165,250,0.45);
+      color: #fff;
+    }
+
+    /* ── Percentile selector ─────────────────────────────────────────── */
+    .pct-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .pct-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .pct-select:focus { border-color: var(--border-focus); }
+    .pct-select option { background: var(--bg-panel); }
+  </style>
+</head>
+
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+    </svg>
+  </div>
+  <h1 class="header-title">REQSTROM</h1>
+  <span class="header-subtitle">Performance Testing Platform</span>
+</header>
+
+<!-- ─── MAIN ────────────────────────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       LEFT PANEL — CONFIGURATION
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <aside class="panel-left">
+
+    <!-- ── cURL Import (Removed - moved to per-endpoint) ───────────────────────────────────────────────── -->
+
+    <div>
+      <div class="section-title">⚙ Test Configuration</div>
+
+      <!-- Multi-endpoint list -->
+      <div style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label style="font-size:12px;font-weight:500;color:var(--text-secondary)">Endpoints &amp; Traffic Weights</label>
+          <span id="weightTotalLabel" style="font-size:11px;font-weight:600;font-family:var(--font-mono)"></span>
+        </div>
+
+        <!-- Column headers -->
+        <div style="display:grid;grid-template-columns:1fr 88px 70px 28px;gap:6px;padding:0 10px;margin-bottom:4px">
+          <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.5px">URL</span>
+          <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.5px">Method</span>
+          <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.5px">Weight</span>
+          <span></span>
+        </div>
+
+        <div class="endpoint-list" id="endpointList"></div>
+
+        <!-- Weight total bar -->
+        <div class="weight-total-bar ok" id="weightTotalBar">
+          <span id="weightTotalText">Total: 0</span>
+          <div class="weight-bar-track">
+            <div class="weight-bar-fill" id="weightBarFill" style="width:0%;background:var(--accent-primary)"></div>
+          </div>
+          <span id="weightTotalHint" style="font-size:10px;opacity:0.7">balanced</span>
+        </div>
+
+        <button class="btn-add-endpoint" id="addEndpointBtn" onclick="addEndpointRow()">+ Add Endpoint</button>
+      </div>
+    </div>
+
+    <!-- ── Test Profile ──────────────────────────────────────────────── -->
+    <div>
+      <div class="section-title">📊 Test Profile</div>
+      <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+        <div class="form-group">
+          <label for="duration">Duration (s)</label>
+          <input type="number" id="duration" placeholder="30" min="5" max="3600" value="30" />
+        </div>
+        <div class="form-group">
+          <label for="vus" id="vusLabel">Pre-alloc VUs</label>
+          <input type="number" id="vus" placeholder="10" min="1" max="1000" value="10" />
+        </div>
+        <div class="form-group">
+          <label for="maxVusLimit" title="Sistem yavaşlarsa çıkılacak maksimum VU sayısı">Max VUs</label>
+          <input type="number" id="maxVusLimit" placeholder="100" min="1" max="5000" value="100" />
+        </div>
+        <div class="form-group">
+          <label for="rps">Target RPS</label>
+          <input type="number" id="rps" placeholder="0" min="0" max="10000" value="0" oninput="updateExecutorMode()" />
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── Load Shaping ─────────────────────────────────────────────── -->
+    <div>
+      <div class="section-title">🔺 Load Shaping</div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label for="rampup">Ramp-up (s)</label>
+          <input type="number" id="rampup" placeholder="5" min="0" max="600" value="5" />
+        </div>
+        <div class="form-group">
+          <label for="rampdown">Ramp-down (s)</label>
+          <input type="number" id="rampdown" placeholder="5" min="0" max="600" value="5" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Thresholds & SLA ──────────────────────────────────────────── -->
+    <div>
+      <div class="section-title">🎯 Thresholds &amp; SLA</div>
+      <div class="pct-row" style="margin-bottom:10px">
+        <div class="form-group">
+          <label for="pctSelect">Percentile</label>
+          <select class="pct-select" id="pctSelect" onchange="onPctSelectChange()">
+            <option value="50">p50 (Median)</option>
+            <option value="75">p75</option>
+            <option value="80">p80</option>
+            <option value="90">p90</option>
+            <option value="95" selected>p95</option>
+            <option value="99">p99</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+        <div class="form-group" id="pctCustomGroup" style="display:none">
+          <label for="pctCustom">Custom (1-99)</label>
+          <input type="number" id="pctCustom" min="1" max="99" value="95" placeholder="95" />
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label for="pctThreshold" id="pctThresholdLabel">p95 Response (ms)</label>
+          <input type="number" id="pctThreshold" placeholder="500" min="1" max="60000" value="500" />
+        </div>
+        <div class="form-group">
+          <label for="errorRate">Max Error Rate (%)</label>
+          <input type="number" id="errorRate" placeholder="1" min="0" max="100" step="0.1" value="1" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Request Body ──────────────────────────────────────────────── -->
+    <div id="body-section" style="display:none">
+      <div class="section-title">📝 Request Body</div>
+      <div class="form-group">
+        <label for="requestBody">JSON Body</label>
+        <textarea id="requestBody" rows="3" placeholder='{"key": "value"}'></textarea>
+      </div>
+    </div>
+
+    <!-- ── Global Custom Headers (Removed - moved to per-endpoint) ──────────────────────────────────────────────── -->
+
+
+
+    <!-- ── Start button ──────────────────────────────────────────────── -->
+    <button class="btn-start" id="startBtn" onclick="startTest()">
+      ▶ START LOAD TEST
+    </button>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       RIGHT PANEL — RESULTS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="panel-right">
+
+    <div class="results-header">
+      <span class="results-title">TEST RESULTS:</span>
+      <span class="status-badge status-idle" id="statusBadge">IDLE</span>
+    </div>
+
+    <div class="results-body">
+
+      <!-- Error box -->
+      <div class="error-box" id="errorBox"></div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-title">Ready to Test</div>
+        <div class="empty-sub">Configure your test parameters on the left and click <strong>START LOAD TEST</strong></div>
+      </div>
+
+      <!-- Running overlay -->
+      <div class="running-overlay" id="runningOverlay">
+        <div class="loader-ring"></div>
+        <div class="running-text">
+          k6 test is running...<br/>
+          <strong id="countdownText">Estimated wait: calculating...</strong>
+        </div>
+      </div>
+
+      <!-- Results (hidden until done) -->
+      <div id="resultsContent" style="display:none">
+
+        <!-- Threshold cards -->
+        <div style="margin-bottom: 32px;">
+          <div class="section-title" style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">⚖ Threshold Comparison</div>
+          <div class="threshold-grid" id="thresholdGrid"></div>
+        </div>
+
+        <!-- Stats -->
+        <div style="margin-bottom: 32px;">
+          <div class="section-title" style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">📈 Performance Summary</div>
+          <div class="stats-grid" id="statsGrid"></div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-section fade-in" style="margin-bottom: 32px;">
+          <div class="chart-header">
+            <span class="chart-title">Performance Over Time</span>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Avg (ms)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div><span id="chartPctLegend">p95</span> (ms)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>SLA Limit</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>VUs</div>
+            </div>
+          </div>
+          <div id="chartContainer">
+            <div class="chart-placeholder" id="chartPlaceholder">
+              <div class="icon">📉</div>
+              <span>No time-series data available</span>
+            </div>
+            <canvas id="chart" style="display:none"></canvas>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="terminal-section fade-in" style="margin-bottom: 24px;">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <div class="terminal-dot dot-red"></div>
+              <div class="terminal-dot dot-yellow"></div>
+              <div class="terminal-dot dot-green"></div>
+            </div>
+            <span class="terminal-label">k6 Terminal Output</span>
+          </div>
+          <div class="terminal-body" id="terminalBody">
+            <span class="terminal-placeholder">Terminal output will appear here after test completes...</span>
+          </div>
+        </div>
+
+      </div><!-- /resultsContent -->
+
+    </div><!-- /results-body -->
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════════════════ -->
+<script>
+  /* ─── CONFIG ──────────────────────────────────────────────────────────────── */
+  const API_BASE = 'http://localhost:5085';
+
+  /* ─── DOM HELPERS ─────────────────────────────────────────────────────────── */
+  const $ = id => document.getElementById(id);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PER-ENDPOINT CURL & HEADERS MANAGEMENT
+  ═══════════════════════════════════════════════════════════════════════════ */
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function addHeaderToEndpoint(epId, key, value) {
+    const list = $(epId + '-headers-list');
+    if (!list) return;
+
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;gap:4px';
+    div.innerHTML = `
+      <input type="text" class="ep-hdr-k" placeholder="Header-Name" value="${escapeHtml(key)}" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:3px;padding:4px 6px;color:white;font-size:11px" />
+      <input type="text" class="ep-hdr-v" placeholder="value" value="${escapeHtml(value)}" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:3px;padding:4px 6px;color:white;font-size:11px" />
+      <button class="btn-icon" style="width:24px;height:24px;padding:0;line-height:24px" title="Remove">×</button>
+    `;
+    div.querySelector('button').addEventListener('click', () => {
+      div.remove();
+      const c = document.getElementById(epId + '-container');
+      if (c && c._updateHeaderCount) c._updateHeaderCount();
+    });
+    list.appendChild(div);
+
+    const c = document.getElementById(epId + '-container');
+    if (c && c._updateHeaderCount) c._updateHeaderCount();
+  }
+
+  function parseCurlForEndpoint(epId, curlText) {
+    if (!curlText) return;
+    try {
+      const tokens = curlText.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g);
+      if (!tokens) return;
+
+      let method = '';
+      let url = '';
+      let body = '';
+      let headersObj = {};
+
+      for (let i = 0; i < tokens.length; i++) {
+        let t = tokens[i];
+        if (t.startsWith("'") || t.startsWith('"')) t = t.slice(1, -1);
+        if (i === 0) continue; 
+
+        if (t === '-X' || t === '--request') {
+          method = (tokens[++i] || '').replace(/['"]/g, '').toUpperCase();
+          continue;
+        }
+
+        if (t === '-H' || t === '--header') {
+          let h = (tokens[++i] || '').replace(/['"]/g, '');
+          const colonIdx = h.indexOf(':');
+          if (colonIdx > 0) {
+            const k = h.slice(0, colonIdx).trim();
+            const v = h.slice(colonIdx + 1).trim();
+            const kl = k.toLowerCase();
+            const isJunk = /^(sec-|accept|origin|referer|user-agent|traceparent|connection|host|dnt)/.test(kl);
+            if (!isJunk && !kl.startsWith('content-type')) { 
+              headersObj[k] = v;
+            }
+          }
+          continue;
+        }
+
+        if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-binary') {
+          body = tokens[++i] || '';
+          if (body.startsWith("'") || body.startsWith('"')) body = body.slice(1, -1);
+          continue;
+        }
+
+        if (t === '-u' || t === '--user') {
+          headersObj['Authorization'] = 'Basic ' + btoa((tokens[++i] || '').replace(/['"]/g, ''));
+          continue;
+        }
+
+        if (/^--(compressed|silent|verbose|include|insecure|location|no-keepalive|http[0-9.]+)$/.test(t)) continue;
+        if (/^-(s|v|i|L|k|I|f|G|g|0|1|2)$/.test(t)) continue;
+        if (!t.startsWith('-') && t.startsWith('http')) url = t;
+      }
+
+      if (!method) method = body ? 'POST' : 'GET';
+
+      if (url) $(epId + '-url').value = url;
+      $(epId + '-method').value = method;
+      $(epId + '-body').value = body;
+      $(epId + '-method').dispatchEvent(new Event('change'));
+
+      for (const k in headersObj) {
+        addHeaderToEndpoint(epId, k, headersObj[k]);
+      }
+      
+      if (Object.keys(headersObj).length > 0) {
+        const c = document.getElementById(epId + '-container');
+        if (c) {
+            const details = c.querySelector('details');
+            if (details) details.open = true;
+        }
+      }
+    } catch (e) {
+      console.error('Curl parse error', e);
+      alert('Error parsing cURL: ' + e.message);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     ENDPOINT LIST MANAGEMENT
+  ═══════════════════════════════════════════════════════════════════════════ */
+  let endpointCount = 0;
+
+  function addEndpointRow(url, method, weight, body, headersObj) {
+    url    = url    || '';
+    method = method || 'GET';
+    weight = weight !== undefined ? weight : 100;
+    body   = body   || '';
+    headersObj = headersObj || {};
+
+    endpointCount++;
+    const id = 'ep-' + endpointCount;
+
+    // Build container
+    const container = document.createElement('div');
+    container.id = id + '-container';
+    container._epId = id;
+    container.style.cssText = 'background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;transition:border-color 0.2s;margin-bottom:6px';
+
+    // Wizard Wrap (for cURL)
+    const wizardWrap = document.createElement('div');
+    wizardWrap.id = id + '-wizard';
+    wizardWrap.style.cssText = 'display:none;flex-direction:column;gap:8px';
+    
+    const wizardTitle = document.createElement('div');
+    wizardTitle.style.cssText = 'font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center';
+    wizardTitle.innerHTML = '<span>⚡ Import from cURL</span>';
+    
+    const removeWizBtn = document.createElement('button');
+    removeWizBtn.className = 'btn-icon';
+    removeWizBtn.textContent = '×';
+    removeWizBtn.title = 'Cancel';
+    removeWizBtn.addEventListener('click', () => removeEndpointRow(id));
+    wizardTitle.appendChild(removeWizBtn);
+
+    const wizTA = document.createElement('textarea');
+    wizTA.placeholder = 'Paste cURL here to automatically populate endpoint...';
+    wizTA.rows = 3;
+    wizTA.style.cssText = 'width:100%;font-size:11px;font-family:var(--font-mono);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:6px 8px;color:var(--text-primary);resize:vertical;outline:none';
+    
+    const wizBtns = document.createElement('div');
+    wizBtns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    
+    const wizSkip = document.createElement('button');
+    wizSkip.textContent = 'Skip / Manual Entry';
+    wizSkip.style.cssText = 'background:transparent;color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;';
+    wizSkip.addEventListener('click', () => {
+       wizardWrap.style.display = 'none';
+       formWrap.style.display = 'grid';
+    });
+
+    const wizParse = document.createElement('button');
+    wizParse.textContent = '⚡ Parse cURL';
+    wizParse.style.cssText = 'background:#059669;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:600';
+    wizParse.addEventListener('click', () => {
+       parseCurlForEndpoint(id, wizTA.value);
+       wizardWrap.style.display = 'none';
+       formWrap.style.display = 'grid';
+    });
+    
+    wizBtns.appendChild(wizSkip);
+    wizBtns.appendChild(wizParse);
+    
+    wizardWrap.appendChild(wizardTitle);
+    wizardWrap.appendChild(wizTA);
+    wizardWrap.appendChild(wizBtns);
+
+    // Form Wrap (normal UI)
+    const formWrap = document.createElement('div');
+    formWrap.id = id + '-form';
+    formWrap.style.cssText = 'display:none;grid-template-columns:1fr 88px 70px 32px 28px;gap:6px;';
+
+    // URL input
+    const urlInput = document.createElement('input');
+    urlInput.type = 'text';
+    urlInput.id = id + '-url';
+    urlInput.placeholder = 'https://api.example.com/v1/resource';
+    urlInput.value = url;
+    urlInput.style.cssText = 'min-width:0;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:6px 8px;font-size:12px;color:var(--text-primary)';
+
+    // Method select
+    const methodSel = document.createElement('select');
+    methodSel.id = id + '-method';
+    methodSel.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:6px 8px;font-size:12px;color:var(--text-primary);cursor:pointer';
+    ['GET','POST','PUT','DELETE','PATCH'].forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      if (m === method) opt.selected = true;
+      methodSel.appendChild(opt);
+    });
+
+    // Weight input wrapper
+    const weightWrap = document.createElement('div');
+    weightWrap.style.cssText = 'position:relative';
+    const weightInput = document.createElement('input');
+    weightInput.type = 'number';
+    weightInput.id = id + '-weight';
+    weightInput.min = '1';
+    weightInput.max = '9999';
+    weightInput.value = weight;
+    weightInput.style.cssText = 'width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:6px 22px 6px 8px;font-size:12px;color:var(--text-primary)';
+    weightInput.addEventListener('input', updateWeightBar);
+    const pctSign = document.createElement('span');
+    pctSign.className = 'weight-pct-sign';
+    pctSign.textContent = '%';
+    weightWrap.appendChild(weightInput);
+    weightWrap.appendChild(pctSign);
+
+    // cURL button (to re-open wizard)
+    const curlBtn = document.createElement('button');
+    curlBtn.className = 'btn-icon';
+    curlBtn.title = 'Import cURL';
+    curlBtn.textContent = '⚡';
+    curlBtn.addEventListener('click', () => {
+      formWrap.style.display = 'none';
+      wizardWrap.style.display = 'flex';
+      wizTA.focus();
+    });
+    
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-icon';
+    removeBtn.title = 'Remove endpoint';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => removeEndpointRow(id));
+
+    formWrap.appendChild(urlInput);
+    formWrap.appendChild(methodSel);
+    formWrap.appendChild(weightWrap);
+    formWrap.appendChild(curlBtn);
+    formWrap.appendChild(removeBtn);
+
+    // Body row (shown for POST/PUT/PATCH)
+    const bodyWrap = document.createElement('div');
+    bodyWrap.id = id + '-body-wrap';
+    bodyWrap.style.cssText = 'grid-column:1/-1;margin-top:4px;display:none';
+    const bodyTA = document.createElement('textarea');
+    bodyTA.id = id + '-body';
+    bodyTA.rows = 2;
+    bodyTA.placeholder = 'JSON body for this endpoint {"key": "value"}';
+    bodyTA.value = body;
+    bodyTA.style.cssText = 'width:100%;font-size:11.5px;font-family:var(--font-mono);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:6px 8px;color:var(--accent-cyan);resize:vertical;outline:none';
+    bodyWrap.appendChild(bodyTA);
+    formWrap.appendChild(bodyWrap);
+
+    // Headers Collapsible
+    const headersDetails = document.createElement('details');
+    headersDetails.style.cssText = 'grid-column:1/-1;margin-top:6px;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;background:rgba(0,0,0,0.1)';
+    const headersSummary = document.createElement('summary');
+    headersSummary.style.cssText = 'font-size:10px;color:var(--text-muted);cursor:pointer;text-transform:uppercase;letter-spacing:1px;outline:none;user-select:none';
+    headersSummary.textContent = '🔑 Headers (0)';
+    headersDetails.appendChild(headersSummary);
+
+    const headersListDiv = document.createElement('div');
+    headersListDiv.id = id + '-headers-list';
+    headersListDiv.style.cssText = 'margin-top:8px;display:flex;flex-direction:column;gap:4px';
+    headersDetails.appendChild(headersListDiv);
+
+    const addHdrBtn = document.createElement('button');
+    addHdrBtn.textContent = '+ Add Header';
+    addHdrBtn.style.cssText = 'margin-top:6px;background:transparent;border:1px dashed rgba(255,255,255,0.1);color:var(--text-secondary);font-size:10px;padding:4px;border-radius:3px;cursor:pointer;width:100%';
+    addHdrBtn.addEventListener('click', () => addHeaderToEndpoint(id, '', ''));
+    headersDetails.appendChild(addHdrBtn);
+    formWrap.appendChild(headersDetails);
+
+    // Dynamic Data Checkbox & CSV Upload
+    const dynWrap = document.createElement('div');
+    dynWrap.style.cssText = 'grid-column:1/-1;margin-top:6px;display:flex;flex-direction:column;gap:6px;padding:8px;background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.15);border-radius:4px;';
+    
+    const dynHeader = document.createElement('div');
+    dynHeader.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    
+    const dynCb = document.createElement('input');
+    dynCb.type = 'checkbox';
+    dynCb.id = id + '-dyn';
+    dynCb.style.cursor = 'pointer';
+    const dynLbl = document.createElement('label');
+    dynLbl.htmlFor = id + '-dyn';
+    dynLbl.textContent = '🎲 Use Dynamic Data (CSV/Random)';
+    dynLbl.style.cssText = 'font-size:10px;color:var(--text-muted);cursor:pointer;text-transform:uppercase;letter-spacing:1px;user-select:none';
+    
+    dynHeader.appendChild(dynCb);
+    dynHeader.appendChild(dynLbl);
+    dynWrap.appendChild(dynHeader);
+
+    // CSV File input wrapper
+    const csvWrap = document.createElement('div');
+    csvWrap.style.cssText = 'display:none;margin-top:4px;font-size:11px;color:var(--text-secondary);';
+    csvWrap.innerHTML = `
+      <div style="margin-bottom:4px;">Upload a CSV specific to this endpoint (Optional):</div>
+      <input type="file" id="${id}-csv" accept=".csv" style="font-size:11px;color:var(--text-primary);"/>
+    `;
+    dynWrap.appendChild(csvWrap);
+
+    dynCb.addEventListener('change', () => {
+      csvWrap.style.display = dynCb.checked ? 'block' : 'none';
+      if (!dynCb.checked) document.getElementById(`${id}-csv`).value = '';
+    });
+    
+    formWrap.appendChild(dynWrap);
+
+    // Helper to update summary count
+    container._updateHeaderCount = () => {
+      const count = headersListDiv.children.length;
+      headersSummary.textContent = `🔑 Headers (${count})`;
+    };
+
+    const toggleBody = () => {
+      const show = ['POST','PUT','PATCH'].includes(methodSel.value);
+      bodyWrap.style.display = show ? '' : 'none';
+    };
+    methodSel.addEventListener('change', toggleBody);
+    toggleBody();
+
+    container.appendChild(wizardWrap);
+    container.appendChild(formWrap);
+
+    // Logic: If URL is empty, show Wizard first. Else, show Form.
+    if (!url) {
+      wizardWrap.style.display = 'flex';
+      setTimeout(() => wizTA.focus(), 10);
+    } else {
+      formWrap.style.display = 'grid';
+    }
+
+    container.addEventListener('mouseenter', () => container.style.borderColor = 'rgba(96,165,250,0.25)');
+    container.addEventListener('mouseleave', () => container.style.borderColor = '');
+
+    $('endpointList').appendChild(container);
+
+    for (const k in headersObj) {
+      addHeaderToEndpoint(id, k, headersObj[k]);
+    }
+
+    updateWeightBar();
+    return id;
+  }
+
+  function removeEndpointRow(id) {
+    const c = document.getElementById(id + '-container');
+    if (c) c.remove();
+    updateWeightBar();
+  }
+
+  function getEndpoints() {
+    return Array.from($('endpointList').children).map(c => {
+      const id = c._epId;
+      if (!id) return null;
+      const url    = $(id + '-url')    ? $(id + '-url').value.trim()          : '';
+      const method = $(id + '-method') ? $(id + '-method').value               : 'GET';
+      const weight = $(id + '-weight') ? (parseInt($(id + '-weight').value) || 1) : 1;
+      const body   = $(id + '-body')   ? $(id + '-body').value.trim()          : '';
+      
+      const headers = {};
+      const hdrList = $(id + '-headers-list');
+      if (hdrList) {
+        Array.from(hdrList.children).forEach(hdrRow => {
+          const k = hdrRow.querySelector('.ep-hdr-k').value.trim();
+          const v = hdrRow.querySelector('.ep-hdr-v').value.trim();
+          if (k) headers[k] = v;
+        });
+      }
+
+      if (!url) return null;
+      const useDyn = $(id + '-dyn') ? $(id + '-dyn').checked : false;
+      const csvInput = $(id + '-csv');
+      const csvFile = (csvInput && csvInput.files.length > 0) ? csvInput.files[0] : null;
+      return { url, httpMethod: method, weight, requestBody: body || null, headers, useDynamicData: useDyn, csvFileObj: csvFile };
+    }).filter(Boolean);
+  }
+
+  function updateWeightBar() {
+    let total = 0;
+    Array.from($('endpointList').children).forEach(c => {
+      const id = c._epId;
+      if (id && $(id + '-weight')) total += parseInt($(id + '-weight').value) || 0;
+    });
+
+    const bar  = $('weightTotalBar');
+    const fill = $('weightBarFill');
+    const text = $('weightTotalText');
+    const hint = $('weightTotalHint');
+
+    text.textContent = 'Total: ' + total;
+    const pct = Math.min(total / 100, 1) * 100;
+    fill.style.width = pct + '%';
+
+    if (total === 100) {
+      bar.className  = 'weight-total-bar ok';
+      fill.style.background = 'var(--accent-primary)';
+      hint.textContent = '✓ balanced';
+    } else if (total < 100) {
+      bar.className  = 'weight-total-bar warn';
+      fill.style.background = '#fbbf24';
+      hint.textContent = '−' + (100 - total) + ' under';
+    } else {
+      bar.className  = 'weight-total-bar warn';
+      fill.style.background = '#fb923c';
+      hint.textContent = '+' + (total - 100) + ' over (auto-normalised)';
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PERCENTILE SELECTOR
+  ═══════════════════════════════════════════════════════════════════════════ */
+  function getActivePct() {
+    const sel = $('pctSelect').value;
+    if (sel === 'custom') return parseInt($('pctCustom').value) || 95;
+    return parseInt(sel) || 95;
+  }
+
+  function onPctSelectChange() {
+    const sel = $('pctSelect').value;
+    $('pctCustomGroup').style.display = sel === 'custom' ? '' : 'none';
+    updatePctLabel();
+  }
+
+  function updatePctLabel() {
+    const pct = getActivePct();
+    $('pctThresholdLabel').textContent = 'p' + pct + ' Response (ms)';
+    if ($('chartPctLegend')) $('chartPctLegend').textContent = 'p' + pct;
+  }
+
+  /* ─── EXECUTOR MODE INDICATOR ─────────────────────────────────────────── */
+  function updateExecutorMode() {
+    const rps = parseInt($('rps').value) || 0;
+    const bar  = $('executorBar');
+    const pill = $('executorPill');
+    const desc = $('executorDesc');
+    const vusLabel = $('vusLabel');
+
+    if (rps > 0) {
+      bar.className  = 'executor-bar arrival';
+      pill.textContent = 'ARRIVAL-RATE';
+      desc.innerHTML = `ramping-arrival-rate &mdash; k6 will fire exactly <strong>${rps} req/s</strong> regardless of response time`;
+      vusLabel.textContent = 'Pre-alloc VUs';
+    } else {
+      bar.className  = 'executor-bar vubased';
+      pill.textContent = 'VU-BASED';
+      desc.innerHTML = 'ramping-vus &mdash; throughput = VUs &times; (1 / response_time)';
+      vusLabel.textContent = 'Pre-alloc VUs:';
+    }
+  }
+
+  // Run once on load to set initial state
+  document.addEventListener('DOMContentLoaded', updateExecutorMode);
+
+
+
+  /* ─── MAIN: START TEST ────────────────────────────────────────────────── */
+  async function startTest() {
+    const endpoints = getEndpoints();
+    if (endpoints.length === 0) { showError('Please add at least one endpoint URL.'); return; }
+
+    const duration  = parseInt($('duration').value) || 30;
+    const rampup    = parseInt($('rampup').value)   || 5;
+    const rampdown  = parseInt($('rampdown').value) || 5;
+    const totalSecs = duration + rampup + rampdown;
+    const pctValue  = getActivePct();
+
+    // Convert any endpoint-specific CSV files to base64
+    for (let i = 0; i < endpoints.length; i++) {
+      const ep = endpoints[i];
+      if (ep.csvFileObj) {
+        ep.csvDataBase64 = await fileToBase64(ep.csvFileObj);
+      }
+      delete ep.csvFileObj; // Remove the File object from the payload
+    }
+
+    const config = {
+      endpoints,
+      pctValue,
+      pctThresholdMs:      parseInt($('pctThreshold').value) || 500,
+      durationSeconds:     duration,
+      vUs:                 parseInt($('vus').value)          || 10,
+      maxVUsLimit:         parseInt($('maxVusLimit').value)  || 100,
+      targetRps:           parseInt($('rps').value)          || 0,
+      rampUpSeconds:       rampup,
+      rampDownSeconds:     rampdown,
+      maxErrorRatePercent: parseFloat($('errorRate').value)  || 1,
+      headers:             [], // Legacy global headers field, sent empty
+      useDynamicData:      false, // Legacy global dynamic data field
+      csvDataBase64:       null, // Legacy global csv data field
+    };
+
+    // UI: set running state
+    setStatus('running');
+    hideError();
+    $('startBtn').disabled = true;
+    $('startBtn').innerHTML = '<span class="spinner"></span> RUNNING TEST...';
+    $('emptyState').style.display = 'none';
+    $('resultsContent').style.display = 'none';
+    $('runningOverlay').classList.add('visible');
+    startCountdown(totalSecs);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/run-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(err.error || err.detail || `Server error ${res.status}`);
+      }
+
+      const result = await res.json();
+      renderResults(result);
+      setStatus(result.p95Passed && result.errorRatePassed ? 'done' : 'error-done');
+
+    } catch (err) {
+      showError(`Test failed: ${err.message}`);
+      setStatus('error');
+      $('runningOverlay').classList.remove('visible');
+      $('emptyState').style.display = 'flex';
+    } finally {
+      stopCountdown();
+      $('startBtn').disabled = false;
+      $('startBtn').innerHTML = '▶ START LOAD TEST';
+      $('runningOverlay').classList.remove('visible');
+    }
+  }
+
+  /* ─── COUNTDOWN ───────────────────────────────────────────────────────── */
+  let countdownTimer = null;
+
+  function startCountdown(totalSecs) {
+    let remaining = totalSecs;
+    updateCountdown(remaining);
+    countdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) { stopCountdown(); return; }
+      updateCountdown(remaining);
+    }, 1000);
+  }
+
+  function updateCountdown(s) {
+    $('countdownText').textContent = `Estimated wait: ~${s}s remaining`;
+  }
+
+  function stopCountdown() {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  }
+
+  /* ─── RENDER RESULTS ──────────────────────────────────────────────────── */
+  function renderResults(r) {
+    $('resultsContent').style.display = '';
+
+    const pctLabel = r.pctLabel || ('p' + (r.pctValue || 95));
+
+    // Update chart legend
+    if ($('chartPctLegend')) $('chartPctLegend').textContent = pctLabel;
+
+    // ── Thresholds ────────────────────────────────────────────────────────────
+    const pctActualMs   = r.pctActualMs  !== undefined ? r.pctActualMs  : r.p95ActualMs;
+    const pctThreshMs   = r.pctThresholdMs !== undefined ? r.pctThresholdMs : r.p95ThresholdMs;
+    const pctPassed     = r.pctPassed    !== undefined ? r.pctPassed    : r.p95Passed;
+
+    const thresholds = r.thresholds || [
+      {
+        name:   'Response Time (' + pctLabel + ')',
+        target: '< ' + pctThreshMs + 'ms',
+        actual: num(pctActualMs) + 'ms',
+        passed: pctPassed,
+      },
+      {
+        name:   'Error Rate',
+        target: '< ' + r.errorRateThresholdPercent + '%',
+        actual: num(r.errorRateActualPercent, 2) + '%',
+        passed: r.errorRatePassed,
+      },
+    ];
+
+    $('thresholdGrid').innerHTML = thresholds.map(function(t) {
+      const icon = t.name.startsWith('Response') ? '⏱' : (t.name === 'Error Rate' ? '⚠' : '📌');
+      return (
+        '<div class="threshold-card ' + (t.passed ? 'pass' : 'fail') + ' fade-in">' +
+          '<div class="threshold-icon ' + (t.passed ? 'pass' : 'fail') + '">' + icon + '</div>' +
+          '<div class="threshold-info">' +
+            '<div class="threshold-name">' + esc(t.name) + '</div>' +
+            '<div class="threshold-values">' +
+              '<span>Target: <strong>' + esc(t.target) + '</strong></span>' +
+              '<span>Result: <strong>' + esc(t.actual) + '</strong></span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
+            '<div class="threshold-actual ' + (t.passed ? 'pass' : 'fail') + '">' + esc(t.actual) + '</div>' +
+            '<span class="' + (t.passed ? 'badge-pass' : 'badge-fail') + '">' + (t.passed ? 'PASS' : 'FAIL') + '</span>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    const stats = [
+      { label: 'Total Req.',          value: r.totalRequests   || '—' },
+      { label: 'Success',             value: r.successRequests || '—' },
+      { label: 'Avg (ms)',            value: num(r.avgDurationMs) },
+      { label: 'Min (ms)',            value: num(r.minDurationMs) },
+      { label: 'Max (ms)',            value: num(r.maxDurationMs) },
+      { label: 'Median (ms)',         value: num(r.medDurationMs) },
+      { label: pctLabel + ' (ms)',    value: num(pctActualMs) },
+      { label: 'Avg RPS',             value: num(r.avgRps, 1) },
+    ];
+
+    $('statsGrid').innerHTML = stats.map(function(s) {
+      return '<div class="stat-card fade-in"><div class="stat-value">' + esc(String(s.value)) + '</div><div class="stat-label">' + esc(s.label) + '</div></div>';
+    }).join('');
+
+    // ── Chart ─────────────────────────────────────────────────────────────────
+    const slaMs = pctThreshMs || 500;
+    renderChart(r.timeSeries || [], slaMs, pctLabel);
+
+    // ── Terminal ──────────────────────────────────────────────────────────────
+    renderTerminal(r.terminalLogs || '');
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CHART (Canvas API) — with SLA horizontal limit line
+  ═══════════════════════════════════════════════════════════════════════════ */
+  function renderChart(series, slaMs, pctLabel) {
+    if (!series || series.length < 2) {
+      $('chartPlaceholder').style.display = 'flex';
+      $('chart').style.display = 'none';
+      return;
+    }
+
+    $('chartPlaceholder').style.display = 'none';
+    const canvas = $('chart');
+    canvas.style.display = 'block';
+    canvas.height = 200;
+    canvas.width  = canvas.parentElement.offsetWidth;
+
+    const ctx  = canvas.getContext('2d');
+    const W    = canvas.width, H = canvas.height;
+    const PAD  = { top: 16, right: 70, bottom: 36, left: 64 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top  - PAD.bottom;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const times = series.map(function(p) { return p.timeSeconds; });
+    const avgs  = series.map(function(p) { return p.avgMs; });
+    const pcts  = series.map(function(p) { return p.p95Ms; });
+    const vus   = series.map(function(p) { return p.activeVUs; });
+
+    const maxTime = Math.max.apply(null, times.concat([1]));
+    const maxMs   = Math.max.apply(null, avgs.concat(pcts).concat([slaMs * 1.1, 10]));
+    const maxVus  = Math.max.apply(null, vus.concat([1]));
+
+    const tx   = function(t) { return PAD.left + (t / maxTime) * plotW; };
+    const yMs  = function(v) { return PAD.top + plotH - (v / maxMs)  * plotH; };
+    const yVus = function(v) { return PAD.top + plotH - (v / maxVus) * plotH; };
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD.top + (plotH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+    }
+
+    // Axis labels — left (ms)
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const v = ((4 - i) / 4) * maxMs;
+      const y = PAD.top + (plotH / 4) * i;
+      ctx.fillText(Math.round(v) + 'ms', PAD.left - 6, y + 4);
+    }
+    // Axis labels — right (VUs)
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= 4; i++) {
+      const v = ((4 - i) / 4) * maxVus;
+      const y = PAD.top + (plotH / 4) * i;
+      ctx.fillText(Math.round(v), PAD.left + plotW + 6, y + 4);
+    }
+    // Axis labels — bottom (time)
+    ctx.textAlign = 'center';
+    const ticks = Math.min(6, series.length);
+    for (let i = 0; i <= ticks; i++) {
+      const t = (i / ticks) * maxTime;
+      ctx.fillText(Math.round(t) + 's', tx(t), PAD.top + plotH + 18);
+    }
+
+    function drawLine(points, color, dash, lw) {
+      dash = dash || [];
+      lw   = lw   || 2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      points.forEach(function(pt, i) { i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]); });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function fillArea(points, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      points.forEach(function(pt, i) { i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]); });
+      ctx.lineTo(tx(times[times.length - 1]), PAD.top + plotH);
+      ctx.lineTo(tx(times[0]), PAD.top + plotH);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const vuPts  = series.map(function(p) { return [tx(p.timeSeconds), yVus(p.activeVUs)]; });
+    const avgPts = series.map(function(p) { return [tx(p.timeSeconds), yMs(p.avgMs)]; });
+    const pctPts = series.map(function(p) { return [tx(p.timeSeconds), yMs(p.p95Ms)]; });
+
+    fillArea(vuPts,  'rgba(167,139,250,0.06)');
+    fillArea(avgPts, 'rgba(96,165,250,0.08)');
+    fillArea(pctPts, 'rgba(74,222,128,0.08)');
+
+    drawLine(vuPts,  '#a78bfa');
+    drawLine(avgPts, '#60a5fa');
+    drawLine(pctPts, '#4ade80', [4, 3]);
+
+    // SLA horizontal limit line
+    if (slaMs > 0 && slaMs <= maxMs) {
+      const slaY = yMs(slaMs);
+      ctx.fillStyle = 'rgba(248,113,113,0.04)';
+      ctx.fillRect(PAD.left, PAD.top, plotW, slaY - PAD.top);
+      drawLine([[PAD.left, slaY], [PAD.left + plotW, slaY]], '#fb923c', [6, 4], 1.5);
+      ctx.fillStyle = '#fb923c';
+      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('SLA ' + (pctLabel || '') + ' ' + slaMs + 'ms', PAD.left + 4, slaY - 4);
+    }
+
+    // Axis lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + plotH);
+    ctx.moveTo(PAD.left, PAD.top + plotH); ctx.lineTo(PAD.left + plotW, PAD.top + plotH);
+    ctx.stroke();
+  }
+
+  /* ─── TERMINAL COLORIZER ──────────────────────────────────────────────── */
+  function renderTerminal(logs) {
+    const terminal = $('terminalBody');
+    if (!logs || logs.trim() === '') {
+      terminal.innerHTML = '<span class="terminal-placeholder">No output captured.</span>';
+      return;
+    }
+
+    const lines = logs.split('\n').map(line => {
+      const e = esc(line);
+      if (line.includes('[ENGINE]'))     return `<span class="log-engine">${e}</span>`;
+      if (/WARN|warn/i.test(line))       return `<span class="log-warn">${e}</span>`;
+      if (/ERR|error|failed/i.test(line))return `<span class="log-error">${e}</span>`;
+      if (/PASS|\[PASS\]/i.test(line))   return `<span class="log-pass">${e}</span>`;
+      if (/INFO|info/i.test(line))       return `<span class="log-info">${e}</span>`;
+      return `<span class="log-normal">${e}</span>`;
+    });
+
+    terminal.innerHTML = lines.join('\n');
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  /* ─── STATUS ──────────────────────────────────────────────────────────── */
+  function setStatus(state) {
+    const badge = $('statusBadge');
+    badge.className = 'status-badge';
+    badge.classList.remove('pulse');
+
+    switch(state) {
+      case 'running':
+        badge.className += ' status-running pulse';
+        badge.textContent = '⟳ RUNNING...';
+        break;
+      case 'done':
+        badge.className += ' status-done';
+        badge.textContent = '✓ COMPLETED';
+        break;
+      case 'error-done':
+        badge.className += ' status-error';
+        badge.textContent = '✗ COMPLETED (FAIL)';
+        break;
+      case 'error':
+        badge.className += ' status-error';
+        badge.textContent = '✗ ERROR';
+        break;
+      default:
+        badge.className += ' status-idle';
+        badge.textContent = 'IDLE';
+    }
+  }
+
+  /* ─── UTILITIES ───────────────────────────────────────────────────────── */
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  function escHtml(s) { return esc(s || ''); }
+
+  function num(v, dec = 0) {
+    if (v === null || v === undefined) return '—';
+    const n = parseFloat(v);
+    return isNaN(n) ? '—' : n.toFixed(dec);
+  }
+
+  function showError(msg) {
+    const box = $('errorBox');
+    box.textContent = msg;
+    box.classList.add('visible');
+  }
+
+  function hideError() {
+    $('errorBox').classList.remove('visible');
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ─── KEYBOARD SHORTCUT ────────────────────────────────────────────────── */
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter' && !$('startBtn').disabled) startTest();
+  });
+
+  /* ─── HEALTH CHECK & INIT ON LOAD ─────────────────────────────────────────────── */
+  window.addEventListener('DOMContentLoaded', async () => {
+    // Add default first endpoint as empty to trigger wizard state
+    addEndpointRow('', 'GET', 100, '');
+
+    try {
+      const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) throw new Error();
+    } catch {
+      showError('⚠ Backend is not reachable at http://localhost:5085 — start the .NET API first: dotnet run');
+    }
+  });
+</script>
+</body>
+</html>
