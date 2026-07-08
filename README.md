@@ -1,4 +1,4 @@
-# ⚡ ReqStrom — Performance Testing Platform
+# ⚡ ReqStorm — Performance Testing Platform
 
 > Professional k6 load testing platform with a modern dark-mode dashboard.  
 > **Stack:** .NET 8 Minimal API (backend) · Vanilla HTML/JS (frontend) · k6 (load engine)
@@ -225,7 +225,7 @@ p50 (Median) · p75 · p80 · p90 · p95 · p99 · Custom (1-99)
 
 ## ✨ Özellikler
 
-### 🖥 Frontend (ReqStrom UI)
+### 🖥 Frontend (ReqStorm UI)
 
 | Özellik | Detay |
 |---------|-------|
